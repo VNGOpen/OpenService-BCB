@@ -63,11 +63,11 @@
 	<!-- beans for production env -->
 	<beans profile="prod,production">
 		<bean id="_redis_hostAndPort" class="java.lang.String">
-			<constructor-arg value="10.60.43.21:16379" />
+			<constructor-arg value="localhost:16379" />
 		</bean>
 
 		<bean id="_cassandra_hostsAndPorts" class="java.lang.String">
-			<constructor-arg value="10.60.43.23,10.60.43.24" />
+			<constructor-arg value="CassandraSeed01,CassandraSeed02" />
 		</bean>
 		<bean id="_cassandra_username" class="java.lang.String">
 			<constructor-arg value="stats_bcb" />

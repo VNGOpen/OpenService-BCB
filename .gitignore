@@ -1,6 +1,6 @@
 /.target
-logs
-target
+/logs
+/target
 /.idea
 /.idea_modules
 /.classpath
@@ -8,8 +8,6 @@ target
 /.settings
 /RUNNING_PID
 /bin
-/libexec
-
-/data/
+/data
 /.cache-main
 /.cache-tests

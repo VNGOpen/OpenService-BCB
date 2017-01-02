@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context 
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/util 
+                           http://www.springframework.org/schema/util/spring-util.xsd"
+	default-lazy-init="false">
+
+	<bean id="NODE_ID" class="java.lang.String">
+		<!-- if set to empty/null, node's IP address will be used as node id -->
+		<constructor-arg value="" />
+	</bean>
+
+	<!-- <bean id="CACHE_FACTORY" class="com.github.ddth.cacheadapter.redis.RedisCacheFactory" 
+		scope="singleton" init-method="init" destroy-method="destroy"> <property 
+		name="defaultExpireAfterAccess" value="-1" /> <property name="defaultExpireAfterWrite" 
+		value="-1" /> <property name="redisHostAndPort" ref="_redis_hostAndPort" 
+		/> <property name="cacheEntrySerializer"> <bean class="com.github.ddth.cacheadapter.ces.DefaultCacheEntrySerializer" 
+		init-method="init" destroy-method="destroy"> </bean> </property> </bean> -->
+
+	<bean id="DAO_BCB" class="bo.cassandra.CassandraBcbDao" scope="singleton"
+		init-method="init" destroy-method="destroy">
+		<!-- <property name="cacheFactory" ref="CACHE_FACTORY" /> -->
+		<property name="hostsAndPorts" ref="_cassandra_hostsAndPorts" />
+		<property name="username" ref="_cassandra_username" />
+		<property name="password" ref="_cassandra_password" />
+		<property name="keyspace" ref="_cassandra_keyspace" />
+		<property name="sessionManager">
+			<bean class="com.github.ddth.cql.SessionManager" init-method="init"
+				destroy-method="destroy"></bean>
+		</property>
+	</bean>
+
+	<bean id="FRONTEND_API" class="api.FrontendApi" init-method="init"
+		destroy-method="destroy">
+		<property name="bcbDao" ref="DAO_BCB" />
+	</bean>
+
+	<!-- beans for development env -->
+	<beans>
+		<bean id="_redis_hostAndPort" class="java.lang.String">
+			<constructor-arg value="localhost:6379" />
+		</bean>
+
+		<bean id="_cassandra_hostsAndPorts" class="java.lang.String">
+			<constructor-arg value="localhost" />
+		</bean>
+		<bean id="_cassandra_username" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+		<bean id="_cassandra_password" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+		<bean id="_cassandra_keyspace" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+	</beans>
+
+	<!-- beans for production env -->
+	<beans profile="prod,production">
+		<bean id="_redis_hostAndPort" class="java.lang.String">
+			<constructor-arg value="10.60.43.21:16379" />
+		</bean>
+
+		<bean id="_cassandra_hostsAndPorts" class="java.lang.String">
+			<constructor-arg value="10.60.43.23,10.60.43.24" />
+		</bean>
+		<bean id="_cassandra_username" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+		<bean id="_cassandra_password" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+		<bean id="_cassandra_keyspace" class="java.lang.String">
+			<constructor-arg value="stats_bcb" />
+		</bean>
+	</beans>
+</beans>

@@ -1,0 +1,36 @@
+<!-- https://www.playframework.com/documentation/latest/SettingsLogger -->
+<!-- for Production env -->
+<configuration>
+	<appender name="FILE"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file><![CDATA[${application.home:-.}/logs/application.log]]></file>
+		<append>true</append>
+		<encoder>
+			<pattern><![CDATA[%date [%level] from %logger in %thread - %message%n%xException]]></pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- daily rollover -->
+			<fileNamePattern><![CDATA[${application.home:-.}/logs/application.log.%d{yyyy-MM-dd}]]></fileNamePattern>
+		</rollingPolicy>
+	</appender>
+
+	<appender name="ASYNCFILE" class="ch.qos.logback.classic.AsyncAppender">
+		<appender-ref ref="FILE" />
+	</appender>
+
+	<logger name="play" level="INFO" />
+	<logger name="application" level="DEBUG" />
+
+	<!-- Off these ones as they are annoying, and anyway we manage configuration 
+		ourselves -->
+	<logger name="com.avaje.ebean.config.PropertyMapLoader" level="OFF" />
+	<logger name="com.avaje.ebeaninternal.server.core.XmlConfigLoader"
+		level="OFF" />
+	<logger name="com.avaje.ebeaninternal.server.lib.BackgroundThread"
+		level="OFF" />
+	<logger name="com.gargoylesoftware.htmlunit.javascript" level="OFF" />
+
+	<root level="WARN">
+		<appender-ref ref="ASYNCFILE" />
+	</root>
+</configuration>

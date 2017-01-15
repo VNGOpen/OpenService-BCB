@@ -56,7 +56,7 @@
 			<constructor-arg value="stats_bcb" />
 		</bean>
 		<bean id="_cassandra_keyspace" class="java.lang.String">
-			<constructor-arg value="stats_bcb" />
+			<constructor-arg value="stats_bcb_dev" />
 		</bean>
 	</beans>
 

@@ -1,8 +1,13 @@
 package bo.cassandra;
 
 import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.Map;
 
+import com.datastax.driver.core.BatchStatement;
+import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
@@ -95,8 +100,9 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         CQL_UPDATE_RANK = MessageFormat.format(CQL_UPDATE_RANK, tableNameRank);
         CQL_UPDATE_HISTORY = MessageFormat.format(CQL_UPDATE_HISTORY, tableNameHistory);
         CQL_CLEANUP_HISTORY = MessageFormat.format(CQL_CLEANUP_HISTORY, tableNameHistory);
-        CQL_SELECT_HISTORY_FOR_CLEANUP = MessageFormat.format(CQL_SELECT_HISTORY_FOR_CLEANUP,
-                tableNameHistory);
+        // CQL_SELECT_HISTORY_FOR_CLEANUP =
+        // MessageFormat.format(CQL_SELECT_HISTORY_FOR_CLEANUP,
+        // tableNameHistory);
 
         return this;
     }
@@ -108,66 +114,72 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
     private String CQL_GET_RANK = "SELECT n,t,p,d FROM {0} WHERE n=? AND t=?";
     private String CQL_GET_HISTORY = "SELECT n,k,t,d FROM {0} WHERE n=? AND k=? AND t>=? AND t<?";
 
-    private String CQL_UPDATE_RANK = "INSERT INTO {0} (n,t,p,d) VALUES (?,?,?,?)";
-    private String CQL_UPDATE_HISTORY = "INSERT INTO {0} (n,k,t,d) VALUES (?,?,?,?)";
+    private String CQL_UPDATE_RANK = "UPDATE {0} SET d=? WHERE n=? AND t=? AND p=?";
+    private String CQL_UPDATE_HISTORY = "UPDATE {0} SET d=? WHERE n=? AND k=? AND t=?";
     private String CQL_CLEANUP_HISTORY = "DELETE FROM {0} WHERE n=? AND k=? AND t=?";
-    private String CQL_SELECT_HISTORY_FOR_CLEANUP = "SELECT n,k,t,d FROM {0} WHERE n=? AND t=? ALLOW FILTERING";
+    // private String CQL_SELECT_HISTORY_FOR_CLEANUP = "SELECT n,k,t,d FROM {0}
+    // WHERE n=? AND t=? ALLOW FILTERING";
 
-    private void updateHistory(Session session, Rankings rankings) {
-        String name = rankings.getName();
-        int timestamp = rankings.getTimestamp();
+    // private void updateHistory(Session session, Rankings rankings) {
+    // String name = rankings.getName();
+    // int timestamp = rankings.getTimestamp();
+    //
+    // /* Phase 1: cleanup old data */
+    // ResultSet rs = CqlUtils.execute(session, CQL_SELECT_HISTORY_FOR_CLEANUP,
+    // ConsistencyLevel.LOCAL_ONE, name, timestamp);
+    // for (Row row : rs) {
+    // if (rs.getAvailableWithoutFetching() < 100 && !rs.isFullyFetched()) {
+    // rs.fetchMoreResults();
+    // }
+    // String key = row.getString("k");
+    // CqlUtils.executeNonSelect(session, CQL_CLEANUP_HISTORY,
+    // ConsistencyLevel.LOCAL_ONE,
+    // name, key, timestamp);
+    // }
+    //
+    // /* Phase 2: update with new data */
+    // Rankings.Item[] items = rankings.getItems();
+    // for (Rankings.Item item : items) {
+    // RankingHistory.Item history = RankingHistory.Item.newInstance(item);
+    // CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY,
+    // ConsistencyLevel.LOCAL_QUORUM,
+    // history.getData(), name, item.getKey(), timestamp);
+    // }
+    // }
 
-        /* Phase 1: cleanup old data */
-        ResultSet rs = CqlUtils.execute(session, CQL_SELECT_HISTORY_FOR_CLEANUP,
-                ConsistencyLevel.LOCAL_ONE, name, timestamp);
-        for (Row row : rs) {
-            if (rs.getAvailableWithoutFetching() < 100 && !rs.isFullyFetched()) {
-                rs.fetchMoreResults();
-            }
-            String key = row.getString("k");
-            CqlUtils.executeNonSelect(session, CQL_CLEANUP_HISTORY, ConsistencyLevel.LOCAL_ONE,
-                    name, key, timestamp);
-        }
+    // /**
+    // * {@inheritDoc}
+    // */
+    // @Override
+    // public void updateHistory(Rankings rankings) {
+    // updateHistory(getSession(), rankings);
+    //
+    // }
 
-        /* Phase 2: update with new data */
-        Rankings.Item[] items = rankings.getItems();
-        for (Rankings.Item item : items) {
-            RankingHistory.Item history = RankingHistory.Item.newInstance(item);
-            CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY, ConsistencyLevel.LOCAL_QUORUM,
-                    name, item.getKey(), timestamp, history.getData());
-        }
-    }
+    // private void updateRankings(Session session, Rankings rankings) {
+    // Rankings.Item[] items = rankings.getItems();
+    // Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length,
+    // "");
+    // String name = rankings.getName();
+    // int timestamp = rankings.getTimestamp();
+    // CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK,
+    // ConsistencyLevel.LOCAL_QUORUM,
+    // metaItem.getData(), name, timestamp, 0);
+    // int pos = 0;
+    // for (Rankings.Item item : items) {
+    // CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK,
+    // ConsistencyLevel.LOCAL_QUORUM,
+    // item.getData(), name, timestamp, ++pos);
+    // }
+    // }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateHistory(Rankings rankings) {
-        updateHistory(getSession(), rankings);
-
-    }
-
-    private void updateRankings(Session session, Rankings rankings) {
-        Rankings.Item[] items = rankings.getItems();
-        Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length, "");
-        String name = rankings.getName();
-        int timestamp = rankings.getTimestamp();
-        CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_QUORUM, name,
-                timestamp, 0, metaItem.getData());
-        int pos = 0;
-        for (Rankings.Item item : items) {
-            CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_QUORUM, name,
-                    timestamp, ++pos, item.getData());
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void updateRankings(Rankings rankings) {
-        updateRankings(getSession(), rankings);
-    }
+    // /**
+    // * {@inheritDoc}
+    // */
+    // @Override
+    // public void updateRankings(Rankings rankings) {
+    // updateRankings(getSession(), rankings);
+    // }
 
     /**
      * {@inheritDoc}
@@ -175,18 +187,58 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
     @Override
     public void updateRankingsAndHistory(Rankings rankings) {
         Session session = getSession();
-        updateRankings(session, rankings);
-        updateHistory(session, rankings);
+        String name = rankings.getName();
+        int timestamp = rankings.getTimestamp();
+        Rankings.Item[] newItems = rankings.getItems();
+        BatchStatement batch = new BatchStatement();
+        batch.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
+        {
+            // cleanup history
+            Map<String, Object> newItemsMap = new HashMap<>();
+            for (Rankings.Item item : newItems) {
+                newItemsMap.put(item.getKey(), Boolean.TRUE);
+            }
+            Rankings existingRankings = getRankings(session, name, timestamp, Integer.MAX_VALUE);
+            PreparedStatement stmCleanupHistory = CqlUtils.prepareStatement(session,
+                    CQL_CLEANUP_HISTORY);
+            Rankings.Item[] items = existingRankings.getItems();
+            for (Rankings.Item item : items) {
+                if (newItemsMap.get(item.getKey()) == null) {
+                    batch.add(stmCleanupHistory.bind(name, item.getKey(), timestamp));
+                }
+            }
+        }
+        {
+            // update ranking history
+            PreparedStatement stmUpdateHistory = CqlUtils.prepareStatement(session,
+                    CQL_UPDATE_HISTORY);
+            for (Rankings.Item item : newItems) {
+                RankingHistory.Item history = RankingHistory.Item.newInstance(item);
+                BoundStatement bstm = stmUpdateHistory.bind(history.getData(), name, item.getKey(),
+                        timestamp);
+                batch.add(bstm);
+            }
+        }
+        {
+            // update rankings
+            Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", newItems.length, "");
+            PreparedStatement stmUpdateRank = CqlUtils.prepareStatement(session, CQL_UPDATE_RANK);
+            batch.add(stmUpdateRank.bind(metaItem.getData(), name, timestamp, 0));
+            int pos = 0;
+            for (Rankings.Item item : newItems) {
+                BoundStatement bstm = stmUpdateRank.bind(item.getData(), name, timestamp, ++pos);
+                batch.add(bstm);
+            }
+        }
+        session.execute(batch);
     }
 
     /**
-     * {@inheritDoc}
+     * @since 0.1.1
      */
-    @Override
-    public Rankings getRankings(String name, int timestamp, int limitNumRows) {
+    private Rankings getRankings(Session session, String name, int timestamp, int limitNumRows) {
         Rankings result = Rankings.newInstance(name, timestamp, Rankings.Item.EMPTY_ARRAY);
 
-        Session session = getSession();
         ResultSet rs = CqlUtils.execute(session, CQL_GET_RANK, ConsistencyLevel.LOCAL_ONE, name,
                 timestamp);
 
@@ -213,6 +265,14 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         }
 
         return result;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Rankings getRankings(String name, int timestamp, int limitNumRows) {
+        return getRankings(getSession(), name, timestamp, limitNumRows);
     }
 
     /**

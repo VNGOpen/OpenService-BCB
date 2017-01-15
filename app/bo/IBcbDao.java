@@ -5,23 +5,22 @@ package bo;
  * @since 0.1.0
  */
 public interface IBcbDao {
-    /**
-     * Updates rankings data.
-     * 
-     * @param rankings
-     */
-    public void updateRankings(Rankings rankings);
+    // /**
+    // * Updates rankings data.
+    // *
+    // * @param rankings
+    // */
+    // public void updateRankings(Rankings rankings);
+    //
+    // /**
+    // * Updates ranking history data.
+    // *
+    // * @param rankings
+    // */
+    // public void updateHistory(Rankings rankings);
 
     /**
-     * Updates ranking history data.
-     * 
-     * @param rankings
-     */
-    public void updateHistory(Rankings rankings);
-
-    /**
-     * Shortcut for {@link #updateRankings(Rankings)} and
-     * {@link #updateHistory(Rankings)}.
+     * Updates rankings and history data.
      * 
      * @param rankings
      */

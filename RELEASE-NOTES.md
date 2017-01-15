@@ -5,7 +5,7 @@ OpenService-BCB
 ------------------
 
 - Improvement: secondary index on table `stats_bcb_history` is no longer needed.
-- New application config `rankings_update_batch_mode: true/false`
+- New application config `rankings_update_batch_mode: true/false`.
 
 
 0.1.1 - 2017-01-15

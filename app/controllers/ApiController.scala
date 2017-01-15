@@ -163,13 +163,14 @@ class ApiController @Inject() (
      * <ul>
      * <li>{@code name}     : (String) name of the rankings</li>
      * <li>{@code timestamp}: (Int) timestamp</li>
+     * <li>{@code info}     : (Boolean/optional) if {@code true} returns {@code info} field for each item</li>
      * </ul>
      *
      * <p>Outputs: (Array) rankings data as an array of object, sorted from the highest ranking to the lowest:</p>
      * <ul>
      *   <li>{@code id}   : (String) the item's unique name/id</li>
      *   <li>{@code value}: (double) the item's value</li>
-     *   <li>{@code info} : (String) the item's metadata/extra info</li>
+     *   <li>{@code info} : (String) the item's metadata/extra info (if input {@code info = true})</li>
      * </ul>
      */
     def getRankings = PermissionCheckAction { implicit request: Request[AnyContent] =>
@@ -181,14 +182,18 @@ class ApiController @Inject() (
                     case e: JsError => doResponseJson(AppConstants.RESPONSE_CLIENT_ERROR, "Missing or invalid parameter [timestamp]!")
                     case t: JsSuccess[Int] => {
                         val rankings = registry.get.getFrontendApi.getRankings(n.get, t.get)
-                        val items = rankings.getItems.map { x => Map("id" -> x.getKey, "value" -> x.getValueAsDouble, "position" -> x.getPosition).asJava }
+                        val info = (requestJson \ "info").asOpt[Boolean].getOrElse(false)
+                        val items = if (info)
+                            rankings.getItems.map { x => Map("id" -> x.getKey, "value" -> x.getValueAsDouble, "info" -> x.getInfo).asJava }
+                        else 
+                            rankings.getItems.map { x => Map("id" -> x.getKey, "value" -> x.getValueAsDouble).asJava }
                         doResponseJson(AppConstants.RESPONSE_OK, "Ok", items.asInstanceOf[Object])
                     }
                 }
             }
         }
     }
-    
+
     /**
      * Gets ranking history data.
      *
@@ -196,8 +201,8 @@ class ApiController @Inject() (
      * <ul>
      *   <li>{@code name} : (String) name of the rankings</li>
      *   <li>{@code id}   : (String) id of the target to fetch history</li>
-     *   <li>{@code start}: (Int) starting timestamp (inclusive)</li>
-     *   <li>{@code end}  : (Int) ending timestamp (exclusive)</li>
+     *   <li>{@code start}: (Int/optional) starting timestamp (inclusive)</li>
+     *   <li>{@code end}  : (Int/optional) ending timestamp (exclusive)</li>
      * </ul>
      *
      * <p>Outputs: (Array) ranking history data as an array of object, sorted by timestamp:</p>

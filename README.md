@@ -8,7 +8,7 @@ Developed and open-sourced by VNG Corporation. See [LICENSE.txt](LICENSE.txt).
 
 ## Release & Installation ##
 
-Latest release version: `0.1.0`. See [RELEASE-NOTES.md](RELEASE-NOTES.md).
+Latest release version: `0.1.1`. See [RELEASE-NOTES.md](RELEASE-NOTES.md).
 
 Download, Build and Install: see [INSTALL.md](INSTALL.md).
 
@@ -68,6 +68,7 @@ Get rankings data.
 
 - `name (string)`      : name of the rankings table to retrieve data from.
 - `timestamp (integer)`: timestamp/version of rankings data to retrieve.
+- `info (boolean)`     : (optional) if `true` returns `info` field for each item.
 
 **Outputs:**
 
@@ -75,7 +76,7 @@ Get rankings data.
   each item has the following fields:
   - `id (string)`   : item's unique name/id
   - `value (double)`: item's value
-  - `info (string)` : item's extra info 
+  - `info (string)` : item's extra info (if input `info = true`)
 
 ### /api/getHistory ###
 

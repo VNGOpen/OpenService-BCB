@@ -47,7 +47,7 @@
 		</bean>
 
 		<bean id="_cassandra_hostsAndPorts" class="java.lang.String">
-			<constructor-arg value="localhost" />
+			<constructor-arg value="localhost:9042" />
 		</bean>
 		<bean id="_cassandra_username" class="java.lang.String">
 			<constructor-arg value="stats_bcb" />

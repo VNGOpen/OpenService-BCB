@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.datastax.driver.core.BatchStatement;
-import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
@@ -18,6 +17,8 @@ import com.github.ddth.dao.BaseDao;
 import bo.IBcbDao;
 import bo.RankingHistory;
 import bo.Rankings;
+import play.Logger;
+import utils.AppGlobals;
 
 public class CassandraBcbDao extends BaseDao implements IBcbDao {
 
@@ -100,9 +101,6 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         CQL_UPDATE_RANK = MessageFormat.format(CQL_UPDATE_RANK, tableNameRank);
         CQL_UPDATE_HISTORY = MessageFormat.format(CQL_UPDATE_HISTORY, tableNameHistory);
         CQL_CLEANUP_HISTORY = MessageFormat.format(CQL_CLEANUP_HISTORY, tableNameHistory);
-        // CQL_SELECT_HISTORY_FOR_CLEANUP =
-        // MessageFormat.format(CQL_SELECT_HISTORY_FOR_CLEANUP,
-        // tableNameHistory);
 
         return this;
     }
@@ -117,69 +115,87 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
     private String CQL_UPDATE_RANK = "UPDATE {0} SET d=? WHERE n=? AND t=? AND p=?";
     private String CQL_UPDATE_HISTORY = "UPDATE {0} SET d=? WHERE n=? AND k=? AND t=?";
     private String CQL_CLEANUP_HISTORY = "DELETE FROM {0} WHERE n=? AND k=? AND t=?";
-    // private String CQL_SELECT_HISTORY_FOR_CLEANUP = "SELECT n,k,t,d FROM {0}
-    // WHERE n=? AND t=? ALLOW FILTERING";
 
-    // private void updateHistory(Session session, Rankings rankings) {
-    // String name = rankings.getName();
-    // int timestamp = rankings.getTimestamp();
-    //
-    // /* Phase 1: cleanup old data */
-    // ResultSet rs = CqlUtils.execute(session, CQL_SELECT_HISTORY_FOR_CLEANUP,
-    // ConsistencyLevel.LOCAL_ONE, name, timestamp);
-    // for (Row row : rs) {
-    // if (rs.getAvailableWithoutFetching() < 100 && !rs.isFullyFetched()) {
-    // rs.fetchMoreResults();
-    // }
-    // String key = row.getString("k");
-    // CqlUtils.executeNonSelect(session, CQL_CLEANUP_HISTORY,
-    // ConsistencyLevel.LOCAL_ONE,
-    // name, key, timestamp);
-    // }
-    //
-    // /* Phase 2: update with new data */
-    // Rankings.Item[] items = rankings.getItems();
-    // for (Rankings.Item item : items) {
-    // RankingHistory.Item history = RankingHistory.Item.newInstance(item);
-    // CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY,
-    // ConsistencyLevel.LOCAL_QUORUM,
-    // history.getData(), name, item.getKey(), timestamp);
-    // }
-    // }
+    private void updateHistory(Session session, Rankings newRankings, Rankings existingRankings) {
+        String name = newRankings.getName();
+        int timestamp = newRankings.getTimestamp();
+        Rankings.Item[] existingItems = existingRankings.getItems();
+        Rankings.Item[] newItems = newRankings.getItems();
+        Map<String, Object> newItemsMap = new HashMap<>();
+        for (Rankings.Item item : newItems) {
+            newItemsMap.put(item.getKey(), Boolean.TRUE);
+        }
 
-    // /**
-    // * {@inheritDoc}
-    // */
-    // @Override
-    // public void updateHistory(Rankings rankings) {
-    // updateHistory(getSession(), rankings);
-    //
-    // }
+        /* Phase 1: cleanup old data */
+        for (Rankings.Item item : existingItems) {
+            if (newItemsMap.get(item.getKey()) == null) {
+                CqlUtils.executeNonSelect(session, CQL_CLEANUP_HISTORY, ConsistencyLevel.LOCAL_ONE,
+                        name, item.getKey(), timestamp);
+            }
+        }
 
-    // private void updateRankings(Session session, Rankings rankings) {
-    // Rankings.Item[] items = rankings.getItems();
-    // Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length,
-    // "");
-    // String name = rankings.getName();
-    // int timestamp = rankings.getTimestamp();
-    // CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK,
-    // ConsistencyLevel.LOCAL_QUORUM,
-    // metaItem.getData(), name, timestamp, 0);
-    // int pos = 0;
-    // for (Rankings.Item item : items) {
-    // CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK,
-    // ConsistencyLevel.LOCAL_QUORUM,
-    // item.getData(), name, timestamp, ++pos);
-    // }
-    // }
+        /* Phase 2: update with new data */
+        for (Rankings.Item item : newItems) {
+            RankingHistory.Item history = RankingHistory.Item.newInstance(item);
+            CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY, ConsistencyLevel.LOCAL_ONE,
+                    history.getData(), name, item.getKey(), timestamp);
+        }
+    }
 
-    // /**
-    // * {@inheritDoc}
-    // */
-    // @Override
-    // public void updateRankings(Rankings rankings) {
-    // updateRankings(getSession(), rankings);
-    // }
+    private void updateHistory(Session session, BatchStatement batch, Rankings newRankings,
+            Rankings existingRankings) {
+        String name = newRankings.getName();
+        int timestamp = newRankings.getTimestamp();
+        Rankings.Item[] existingItems = existingRankings.getItems();
+        Rankings.Item[] newItems = newRankings.getItems();
+        Map<String, Object> newItemsMap = new HashMap<>();
+        for (Rankings.Item item : newItems) {
+            newItemsMap.put(item.getKey(), Boolean.TRUE);
+        }
+
+        /* Phase 1: cleanup old data */
+        PreparedStatement stmCleanupHistory = CqlUtils.prepareStatement(session,
+                CQL_CLEANUP_HISTORY);
+        for (Rankings.Item item : existingItems) {
+            if (newItemsMap.get(item.getKey()) == null) {
+                batch.add(stmCleanupHistory.bind(name, item.getKey(), timestamp));
+            }
+        }
+
+        /* Phase 2: update with new data */
+        PreparedStatement stmUpdateHistory = CqlUtils.prepareStatement(session, CQL_UPDATE_HISTORY);
+        for (Rankings.Item item : newItems) {
+            RankingHistory.Item history = RankingHistory.Item.newInstance(item);
+            batch.add(stmUpdateHistory.bind(history.getData(), name, item.getKey(), timestamp));
+        }
+    }
+
+    private void updateRankings(Session session, Rankings rankings) {
+        Rankings.Item[] items = rankings.getItems();
+        Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length, "");
+        String name = rankings.getName();
+        int timestamp = rankings.getTimestamp();
+        CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_ONE,
+                metaItem.getData(), name, timestamp, 0);
+        int pos = 0;
+        for (Rankings.Item item : items) {
+            CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_ONE,
+                    item.getData(), name, timestamp, ++pos);
+        }
+    }
+
+    private void updateRankings(Session session, BatchStatement batch, Rankings rankings) {
+        Rankings.Item[] items = rankings.getItems();
+        String name = rankings.getName();
+        int timestamp = rankings.getTimestamp();
+        PreparedStatement stmUpdateRank = CqlUtils.prepareStatement(session, CQL_UPDATE_RANK);
+        Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length, "");
+        batch.add(stmUpdateRank.bind(metaItem.getData(), name, timestamp, 0));
+        int pos = 0;
+        for (Rankings.Item item : items) {
+            batch.add(stmUpdateRank.bind(item.getData(), name, timestamp, ++pos));
+        }
+    }
 
     /**
      * {@inheritDoc}
@@ -189,48 +205,25 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         Session session = getSession();
         String name = rankings.getName();
         int timestamp = rankings.getTimestamp();
-        Rankings.Item[] newItems = rankings.getItems();
-        BatchStatement batch = new BatchStatement();
-        batch.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-        {
-            // cleanup history
-            Map<String, Object> newItemsMap = new HashMap<>();
-            for (Rankings.Item item : newItems) {
-                newItemsMap.put(item.getKey(), Boolean.TRUE);
+        Rankings existingRankings = getRankings(session, name, timestamp, Integer.MAX_VALUE);
+
+        Boolean batchMode = AppGlobals.appConfig.getBoolean("rankings_update_batch_mode");
+        if (batchMode == null || !batchMode.booleanValue()) {
+            if (Logger.isDebugEnabled()) {
+                Logger.debug("Update rankings (non-batch): " + rankings);
             }
-            Rankings existingRankings = getRankings(session, name, timestamp, Integer.MAX_VALUE);
-            PreparedStatement stmCleanupHistory = CqlUtils.prepareStatement(session,
-                    CQL_CLEANUP_HISTORY);
-            Rankings.Item[] items = existingRankings.getItems();
-            for (Rankings.Item item : items) {
-                if (newItemsMap.get(item.getKey()) == null) {
-                    batch.add(stmCleanupHistory.bind(name, item.getKey(), timestamp));
-                }
+            updateHistory(session, rankings, existingRankings);
+            updateRankings(session, rankings);
+        } else {
+            if (Logger.isDebugEnabled()) {
+                Logger.debug("Update rankings (batch): " + rankings);
             }
+            BatchStatement batch = new BatchStatement();
+            batch.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+            updateHistory(session, batch, rankings, existingRankings);
+            updateRankings(session, batch, rankings);
+            session.execute(batch);
         }
-        {
-            // update ranking history
-            PreparedStatement stmUpdateHistory = CqlUtils.prepareStatement(session,
-                    CQL_UPDATE_HISTORY);
-            for (Rankings.Item item : newItems) {
-                RankingHistory.Item history = RankingHistory.Item.newInstance(item);
-                BoundStatement bstm = stmUpdateHistory.bind(history.getData(), name, item.getKey(),
-                        timestamp);
-                batch.add(bstm);
-            }
-        }
-        {
-            // update rankings
-            Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", newItems.length, "");
-            PreparedStatement stmUpdateRank = CqlUtils.prepareStatement(session, CQL_UPDATE_RANK);
-            batch.add(stmUpdateRank.bind(metaItem.getData(), name, timestamp, 0));
-            int pos = 0;
-            for (Rankings.Item item : newItems) {
-                BoundStatement bstm = stmUpdateRank.bind(item.getData(), name, timestamp, ++pos);
-                batch.add(bstm);
-            }
-        }
-        session.execute(batch);
     }
 
     /**

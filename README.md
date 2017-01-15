@@ -8,7 +8,7 @@ Developed and open-sourced by VNG Corporation. See [LICENSE.txt](LICENSE.txt).
 
 ## Release & Installation ##
 
-Latest release version: `0.1.1`. See [RELEASE-NOTES.md](RELEASE-NOTES.md).
+Latest release version: `0.1.2`. See [RELEASE-NOTES.md](RELEASE-NOTES.md).
 
 Download, Build and Install: see [INSTALL.md](INSTALL.md).
 

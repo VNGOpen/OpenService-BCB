@@ -38,8 +38,3 @@ CREATE TABLE stats_bcb_history (
     d           text,       -- data
     PRIMARY KEY ((n,k), t)
 ) WITH CLUSTERING ORDER BY (t DESC);
-
-DROP INDEX IF EXISTS stats_bcb_history_n_idx;
-CREATE INDEX stats_bcb_history_n_idx ON stats_bcb_history(n);
-DROP INDEX IF EXISTS stats_bcb_history_t_idx;
-CREATE INDEX stats_bcb_history_t_idx ON stats_bcb_history(t);

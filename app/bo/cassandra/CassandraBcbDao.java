@@ -133,8 +133,8 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         Rankings.Item[] items = rankings.getItems();
         for (Rankings.Item item : items) {
             RankingHistory.Item history = RankingHistory.Item.newInstance(item);
-            CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY, ConsistencyLevel.LOCAL_ONE, name,
-                    item.getKey(), timestamp, history.getData());
+            CqlUtils.executeNonSelect(session, CQL_UPDATE_HISTORY, ConsistencyLevel.LOCAL_QUORUM,
+                    name, item.getKey(), timestamp, history.getData());
         }
     }
 
@@ -152,11 +152,11 @@ public class CassandraBcbDao extends BaseDao implements IBcbDao {
         Rankings.Item metaItem = Rankings.Item.newInstance(0, "_", items.length, "");
         String name = rankings.getName();
         int timestamp = rankings.getTimestamp();
-        CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_ONE, name,
+        CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_QUORUM, name,
                 timestamp, 0, metaItem.getData());
         int pos = 0;
         for (Rankings.Item item : items) {
-            CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_ONE, name,
+            CqlUtils.executeNonSelect(session, CQL_UPDATE_RANK, ConsistencyLevel.LOCAL_QUORUM, name,
                     timestamp, ++pos, item.getData());
         }
     }

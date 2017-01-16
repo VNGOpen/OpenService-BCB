@@ -27,8 +27,8 @@ import utils.AppUtils
 import play.api.libs.json.JsObject
 import play.api.libs.json.JsBoolean
 import play.api.libs.json.JsNumber
-import play.Logger
 import utils.AppGlobals
+import play.api.Logger
 
 /**
  * Base controller to handle REST API requests.
@@ -60,26 +60,32 @@ class ApiController @Inject() (
 
     protected object PermissionCheckAction extends ActionBuilder[Request] {
         def invokeBlock[A](request: Request[A], block: Request[A] => Future[Result]): Future[Result] = {
-            var validApiCall = AppUtils.isApiAuthDisabled
-            if (!validApiCall) {
-                val reqAppId = request.headers.get(HEADER_APP_ID).getOrElse(null)
-                val reqToken = request.headers.get(HEADER_REQUEST_TOKEN).getOrElse(null)
-                val timestamp = if (reqToken != null) reqToken.split("\\|", 2)(0) else "0"
+            try {
+                var validApiCall = AppUtils.isApiAuthDisabled
+                if (!validApiCall) {
+                    val reqAppId = request.headers.get(HEADER_APP_ID).getOrElse(null)
+                    val reqToken = request.headers.get(HEADER_REQUEST_TOKEN).getOrElse(null)
+                    val timestamp = if (reqToken != null) reqToken.split("\\|", 2)(0) else "0"
 
-                val app = registry.get.getPlayApplication
-                val appConf = app.configuration
-                val authAppId = appConf.getString("auth.app_id")
-                val authApiKey = appConf.getString("auth.api_key")
-                val calcToken = timestamp + "|" + HashUtils.md5(authApiKey + "|" + timestamp)
+                    val app = registry.get.getPlayApplication
+                    val appConf = app.configuration
+                    val authAppId = appConf.getString("auth.app_id")
+                    val authApiKey = appConf.getString("auth.api_key")
+                    val calcToken = timestamp + "|" + HashUtils.md5(authApiKey + "|" + timestamp)
 
-                validApiCall = reqAppId == (authAppId) &&
-                    (if (app.isDev()) reqToken == (authApiKey) else reqToken == (calcToken))
-            }
-
-            if (validApiCall) {
-                block(request)
-            } else {
-                Future.successful(doResponseJson(AppConstants.RESPONSE_ACCESS_DENIED, "Request validation failed (Invalid AppId or malformed RequestToken)"))
+                    validApiCall = reqAppId == (authAppId) &&
+                        (if (app.isDev()) reqToken == (authApiKey) else reqToken == (calcToken))
+                }
+                if (validApiCall) {
+                    block(request)
+                } else {
+                    Future.successful(doResponseJson(AppConstants.RESPONSE_ACCESS_DENIED, "Request validation failed (Invalid AppId or malformed RequestToken)"))
+                }
+            } catch {
+                case e: Exception => {
+                    Logger.error("Error while processing request [" + request.uri + "]: " + e.getMessage, e)
+                    Future.successful(doResponseJson(AppConstants.RESPONSE_SERVER_ERROR, "Error while processing request: " + e.getMessage))
+                }
             }
         }
     }
@@ -185,7 +191,7 @@ class ApiController @Inject() (
                         val info = (requestJson \ "info").asOpt[Boolean].getOrElse(false)
                         val items = if (info)
                             rankings.getItems.map { x => Map("id" -> x.getKey, "value" -> x.getValueAsDouble, "info" -> x.getInfo).asJava }
-                        else 
+                        else
                             rankings.getItems.map { x => Map("id" -> x.getKey, "value" -> x.getValueAsDouble).asJava }
                         doResponseJson(AppConstants.RESPONSE_OK, "Ok", items.asInstanceOf[Object])
                     }

@@ -37,4 +37,5 @@ CREATE TABLE stats_bcb_history (
     t           int,        -- timestamp
     d           text,       -- data
     PRIMARY KEY ((n,k), t)
-) WITH CLUSTERING ORDER BY (t DESC);
+) WITH CLUSTERING ORDER BY (t DESC) AND COMPACT STORAGE;
+
